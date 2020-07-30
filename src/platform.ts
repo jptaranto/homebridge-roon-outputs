@@ -1,116 +1,134 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import { ExamplePlatformAccessory } from './platformAccessory';
+import { RoonOutputsPlatformAccessory } from './platformAccessory';
+
+import RoonApi from 'node-roon-api';
+import RoonApiStatus from 'node-roon-api-status';
+import RoonApiTransport from 'node-roon-api-transport';
 
 /**
- * HomebridgePlatform
- * This class is the main constructor for your plugin, this is where you should
- * parse the user config and discover/register accessories with Homebridge.
+ * Add Roon outputs as accessories.
  */
-export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
+export class RoonOutputsPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service = this.api.hap.Service;
   public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
 
-  // this is used to track restored cached accessories
+  // This is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
+
+  public core;
+
+  public zones;
+
+  public outputs;
+
+  public svcStatus;
 
   constructor(
     public readonly log: Logger,
     public readonly config: PlatformConfig,
     public readonly api: API,
   ) {
-    this.log.debug('Finished initializing platform:', this.config.name);
+    this.config = {
+      postfix: 'Speaker',
+      ...config
+    };
 
-    // When this event is fired it means Homebridge has restored all cached accessories from disk.
-    // Dynamic Platform plugins should only register new accessories after this event was fired,
-    // in order to ensure they weren't added to homebridge already. This event can also be used
-    // to start discovery of new accessories.
     this.api.on('didFinishLaunching', () => {
-      log.debug('Executed didFinishLaunching callback');
-      // run the method to discover / register your devices as accessories
-      this.discoverDevices();
+      this.log.debug('Finished initializing platform:', this.config.name);
+      this.discoverRoon();
     });
   }
 
   /**
-   * This function is invoked when homebridge restores cached accessories from disk at startup.
-   * It should be used to setup event handlers for characteristics and update respective values.
+   * Use the RoonApi to pair with the local core.
+   * @see https://roonlabs.github.io/node-roon-api/RoonApi.html
    */
-  configureAccessory(accessory: PlatformAccessory) {
-    this.log.info('Loading accessory from cache:', accessory.displayName);
+  discoverRoon() {
+    this.log.debug('Initializing Roon Node API...')
+    const roon = new RoonApi({
+      extension_id: PLUGIN_NAME,
+      display_name: PLATFORM_NAME,
+      display_version: process.env.npm_package_version,
+      publisher: "Homebridge",
+      email: "jacktaranto@gmail.com",
+      log_level: "none",
+      core_paired: (core) => {
+        this.log.debug(`Paired with ${core.display_name}.`);
+        this.core = core;
+        // Calling this and saving the value allows us to use RoonApiTransport.control later on.
+        this.core.services.RoonApiTransport.subscribe_zones((error, response) => {
+          if (error) {
+            return;
+          }
+          this.zones = response.zones;
+        })
+        // We want the phyisical speakers to be based on outputs, not zones, so
+        this.core.services.RoonApiTransport.get_outputs((error, response) => {
+          if (error) {
+            return;
+          }
+          this.outputs = response.outputs;
+          this.addAccessories();
+        });
+      },
+      core_unpaired: (core) => {
+        this.log.debug(`Unpaired with ${core.display_name}.`);
+      },
+    });
 
-    // add the restored accessory to the accessories cache so we can track if it has already been registered
-    this.accessories.push(accessory);
+    this.svcStatus = new RoonApiStatus(roon);
+
+    roon.init_services({
+      required_services: [ RoonApiTransport ],
+      provided_services: [ this.svcStatus ],
+    });
+    roon.start_discovery();
   }
 
   /**
-   * This is an example method showing how to register discovered accessories.
-   * Accessories must only be registered once, previously created accessories
-   * must not be registered again to prevent "duplicate UUID" errors.
+   * Use the returned value of get_outputs to create the speaker accessories.
    */
-  discoverDevices() {
+  addAccessories() {
+    // This only flashes momentarily, but hey, it probably shows up in logs.
+    this.svcStatus.set_status('Adding/Updating output accessories...', false);
 
-    // EXAMPLE ONLY
-    // A real plugin you would discover accessories from the local network, cloud services
-    // or a user-defined array in the platform config.
-    const exampleDevices = [
-      {
-        exampleUniqueId: 'ABCD',
-        exampleDisplayName: 'Bedroom',
-      },
-      {
-        exampleUniqueId: 'EFGH',
-        exampleDisplayName: 'Kitchen',
-      },
-    ];
+    for (const output of this.outputs) {
+      // Use Roons output_id to create the UUID. This will ensure the accessory is always in sync.
+      const uuid = this.api.hap.uuid.generate(output.output_id);
 
-    // loop over the discovered devices and register each one if it has not already been registered
-    for (const device of exampleDevices) {
+      // Create the accessory name based on the display_name and the optional config.postfix value.
+      const name = `${output.display_name}${this.config.postfix ? ' ' + this.config.postfix : ''}`;
 
-      // generate a unique id for the accessory this should be generated from
-      // something globally unique, but constant, for example, the device serial
-      // number or MAC address
-      const uuid = this.api.hap.uuid.generate(device.exampleUniqueId);
+      this.log.info(`Adding/Updating Roon Output External Accessory: ${name}`);
 
-      // see if an accessory with the same uuid has already been registered and restored from
-      // the cached devices we stored in the `configureAccessory` method above
-      const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
+      const accessory = new this.api.platformAccessory(name, uuid);
+      accessory.context.output = output;
+      // Adding 26 as the category is some special sauce that gets this to work properly.
+      // @see https://github.com/homebridge/homebridge/issues/2553#issuecomment-623675893
+      accessory.category = 26;
 
-      if (existingAccessory) {
-        // the accessory already exists
-        this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
+      new RoonOutputsPlatformAccessory(this, accessory);
 
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        // existingAccessory.context.device = device;
-        // this.api.updatePlatformAccessories([existingAccessory]);
-
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, existingAccessory);
-
-      } else {
-        // the accessory does not yet exist, so we need to create it
-        this.log.info('Adding new accessory:', device.exampleDisplayName);
-
-        // create a new accessory
-        const accessory = new this.api.platformAccessory(device.exampleDisplayName, uuid);
-
-        // store a copy of the device object in the `accessory.context`
-        // the `context` property can be used to store any data about the accessory you may need
-        accessory.context.device = device;
-
-        // create the accessory handler for the newly create accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, accessory);
-
-        // link the accessory to your platform
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-      }
-
-      // it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, eg.:
-      // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+      // SmartSpeaker service must be added as an external accessory.
+      // @see https://github.com/homebridge/homebridge/issues/2553#issuecomment-622961035
+      // There a no collision issues when calling this multiple times on accessories that already exist.
+      this.api.publishExternalAccessories(PLUGIN_NAME, [accessory]);
     }
 
+    // Tell Roon we are ready to rock!
+    this.svcStatus.set_status('Successful', false);
   }
+
+  /**
+   * This function is invoked when homebridge restores cached accessories from disk at startup.
+   * We don't actually restore any accessories, because each speaker is added as an External accessory
+   * so this won't ever get called.
+   */
+  configureAccessory(accessory: PlatformAccessory) {
+    this.log.info('Loading accessory from cache:', accessory.displayName);
+    this.accessories.push(accessory);
+  }
+
 }

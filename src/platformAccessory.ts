@@ -1,130 +1,115 @@
-import { Service, PlatformAccessory, CharacteristicValue, CharacteristicSetCallback, CharacteristicGetCallback } from 'homebridge';
+import {
+  Service,
+  PlatformAccessory,
+  Characteristic,
+  CharacteristicValue,
+  CharacteristicSetCallback,
+  CharacteristicGetCallback,
+  CharacteristicEventTypes,
+} from 'homebridge';
 
-import { ExampleHomebridgePlatform } from './platform';
+import { RoonOutputsPlatform } from './platform';
 
 /**
- * Platform Accessory
- * An instance of this class is created for each accessory your platform registers
- * Each accessory may expose multiple services of different service types.
+ * Roon Outputs Platform Accessory.
  */
-export class ExamplePlatformAccessory {
+export class RoonOutputsPlatformAccessory {
   private service: Service;
 
-  /**
-   * These are just used to create a working example
-   * You should implement your own code to track the state of your accessory
-   */
-  private exampleStates = {
-    On: false,
-    Brightness: 100,
-  }
+  private currentMediaState: CharacteristicValue;
+
+  private targetMediaState: CharacteristicValue;
 
   constructor(
-    private readonly platform: ExampleHomebridgePlatform,
+    private readonly platform: RoonOutputsPlatform,
     private readonly accessory: PlatformAccessory,
   ) {
+    this.currentMediaState = this.getRoonZoneState();
+    this.targetMediaState =  this.platform.Characteristic.CurrentMediaState.PAUSE
 
-    // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
+        .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Roon')
+        .setCharacteristic(this.platform.Characteristic.Model, 'Output')
+        .setCharacteristic(this.platform.Characteristic.SerialNumber, this.accessory.context.output.output_id);
 
-    // get the LightBulb service if it exists, otherwise create a new LightBulb service
-    // you can create multiple services for each accessory
-    this.service = this.accessory.getService(this.platform.Service.Lightbulb) || this.accessory.addService(this.platform.Service.Lightbulb);
+    this.service =
+        this.accessory.getService(this.platform.Service.SmartSpeaker)
+        || this.accessory.addService(this.platform.Service.SmartSpeaker);
 
-    // To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
-    // when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
-    // this.accessory.getService('NAME') ?? this.accessory.addService(this.platform.Service.Lightbulb, 'NAME', 'USER_DEFINED_SUBTYPE');
+    // Allows name to show when adding speaker.
+    // This has the added benefit of keeping the speaker name in sync with Roon and your config.
+    this.service.setCharacteristic(this.platform.Characteristic.ConfiguredName, this.accessory.displayName);
 
-    // set the service name, this is what is displayed as the default name on the Home app
-    // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.exampleDisplayName);
+    // Event handlers for CurrentMediaState and TargetMediaState Characteristics.
+    this.service.getCharacteristic(this.platform.Characteristic.CurrentMediaState)
+        .on(CharacteristicEventTypes.GET, this.getCurrentMediaState.bind(this));
+    this.service.getCharacteristic(this.platform.Characteristic.TargetMediaState)
+        .on(CharacteristicEventTypes.SET, this.setTargetMediaState.bind(this))
+        .on(CharacteristicEventTypes.GET, this.getTargetMediaState.bind(this));
 
-    // each service must implement at-minimum the "required characteristics" for the given service type
-    // see https://developers.homebridge.io/#/service/Lightbulb
-
-    // register handlers for the On/Off Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.On)
-      .on('set', this.setOn.bind(this))                // SET - bind to the `setOn` method below
-      .on('get', this.getOn.bind(this));               // GET - bind to the `getOn` method below
-
-    // register handlers for the Brightness Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.Brightness)
-      .on('set', this.setBrightness.bind(this));       // SET - bind to the 'setBrightness` method below
-
-    // EXAMPLE ONLY
-    // Example showing how to update the state of a Characteristic asynchronously instead
-    // of using the `on('get')` handlers.
-    //
-    // Here we change update the brightness to a random value every 5 seconds using 
-    // the `updateCharacteristic` method.
+    // This will do its best to keep the actual outputs status up to date with Homekit.
     setInterval(() => {
-      // assign the current brightness a random value between 0 and 100
-      const currentBrightness = Math.floor(Math.random() * 100);
-
-      // push the new value to HomeKit
-      this.service.updateCharacteristic(this.platform.Characteristic.Brightness, currentBrightness);
-
-      this.platform.log.debug('Pushed updated current Brightness state to HomeKit:', currentBrightness);
-    }, 10000);
+      this.currentMediaState = this.getRoonZoneState();
+      this.service.getCharacteristic(this.platform.Characteristic.CurrentMediaState).updateValue(this.currentMediaState);
+    }, 3000);
   }
 
   /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
+   * Utility method to pull the actual status from the zone.
    */
-  setOn(value: CharacteristicValue, callback: CharacteristicSetCallback) {
-
-    // implement your own code to turn your device on/off
-    this.exampleStates.On = value as boolean;
-
-    this.platform.log.debug('Set Characteristic On ->', value);
-
-    // you must call the callback function
-    callback(null);
+  getRoonZoneState() {
+    const zone = this.platform.core.services.RoonApiTransport.zone_by_zone_id(this.accessory.context.output.zone_id);
+    // If the output/zone doesn't exist for any reason (such as from being grouped, return stopped).
+    if (!zone) {
+      return this.platform.Characteristic.CurrentMediaState.STOP;
+    }
+    let state: number = 0;
+    // These are the state strings returned by zone_by_zone_id.
+    if (zone.state === 'playing') {
+      state = this.platform.Characteristic.CurrentMediaState.PLAY;
+    }
+    if (zone.state === 'paused' || zone.state === 'loading') {
+      state = this.platform.Characteristic.CurrentMediaState.PAUSE;
+    }
+    if (zone.state === 'stopped') {
+      state = this.platform.Characteristic.CurrentMediaState.STOP;
+    }
+    return state;
   }
 
   /**
-   * Handle the "GET" requests from HomeKit
-   * These are sent when HomeKit wants to know the current state of the accessory, for example, checking if a Light bulb is on.
-   * 
-   * GET requests should return as fast as possbile. A long delay here will result in
-   * HomeKit being unresponsive and a bad user experience in general.
-   * 
-   * If your device takes time to respond you should update the status of your device
-   * asynchronously instead using the `updateCharacteristic` method instead.
-
-   * @example
-   * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
+   * Get the currentMediaState.
    */
-  getOn(callback: CharacteristicGetCallback) {
-
-    // implement your own code to check if the device is on
-    const isOn = this.exampleStates.On;
-
-    this.platform.log.debug('Get Characteristic On ->', isOn);
-
-    // you must call the callback function
-    // the first argument should be null if there were no errors
-    // the second argument should be the value to return
-    callback(null, isOn);
+  getCurrentMediaState(callback: CharacteristicGetCallback) {
+    this.currentMediaState = this.getRoonZoneState();
+    this.platform.log.debug('Triggered GET CurrentMediaState:', this.currentMediaState);
+    callback(undefined, this.currentMediaState);
   }
 
   /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, changing the Brightness
+   * Set the targetMediaState.
+   * We aren't allowing Homekit to set the value for us, instead we call the RoonApiTransport.control method
+   * with 'playpause' which does a great job of stopping and starting the output.
+   * Combined with the setInterval in the constructor the output status should generally be good.
    */
-  setBrightness(value: CharacteristicValue, callback: CharacteristicSetCallback) {
+  setTargetMediaState(value, callback: CharacteristicGetCallback) {
+    this.targetMediaState = value;
+    this.platform.log.debug('Triggered SET TargetMediaState:', value);
+    // Use playpause here as it's more versatile.
+    // @see https://roonlabs.github.io/node-roon-api/other_node-roon-api-transport_lib.js.html
+    this.platform.core.services.RoonApiTransport.control(this.accessory.context.output.zone_id, 'playpause', () => {
+      callback(null);
+    });
+  }
 
-    // implement your own code to set the brightness
-    this.exampleStates.Brightness = value as number;
-
-    this.platform.log.debug('Set Characteristic Brightness -> ', value);
-
-    // you must call the callback function
-    callback(null);
+  /**
+   * Get the targetMediaState.
+   * This doesn't seem to ever be called. Ever...
+   */
+  getTargetMediaState(callback: CharacteristicGetCallback) {
+    const state = this.targetMediaState;
+    this.platform.log.debug('Triggered GET CurrentMediaState:', state);
+    callback(undefined, state);
   }
 
 }
