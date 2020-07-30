@@ -50,7 +50,7 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
     const roon = new RoonApi({
       extension_id: PLUGIN_NAME,
       display_name: PLATFORM_NAME,
-      display_version: process.env.npm_package_version,
+      display_version: '0.1.2',
       publisher: 'Homebridge',
       email: 'anonymous@gmail.com',
       log_level: 'none',
