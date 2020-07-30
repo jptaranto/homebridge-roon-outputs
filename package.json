@@ -1,5 +1,4 @@
 {
-  "private": true,
   "displayName": "Homebridge Roon Outputs",
   "name": "homebridge-roon-outputs",
   "version": "0.1.0",

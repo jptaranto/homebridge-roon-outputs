@@ -52,7 +52,7 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
       display_name: PLATFORM_NAME,
       display_version: process.env.npm_package_version,
       publisher: "Homebridge",
-      email: "jacktaranto@gmail.com",
+      email: "anonymous@gmail.com",
       log_level: "none",
       core_paired: (core) => {
         this.log.debug(`Paired with ${core.display_name}.`);
