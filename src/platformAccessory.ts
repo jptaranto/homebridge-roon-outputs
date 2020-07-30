@@ -1,9 +1,7 @@
 import {
   Service,
   PlatformAccessory,
-  Characteristic,
   CharacteristicValue,
-  CharacteristicSetCallback,
   CharacteristicGetCallback,
   CharacteristicEventTypes,
 } from 'homebridge';
@@ -25,12 +23,12 @@ export class RoonOutputsPlatformAccessory {
     private readonly accessory: PlatformAccessory,
   ) {
     this.currentMediaState = this.getRoonZoneState();
-    this.targetMediaState =  this.platform.Characteristic.CurrentMediaState.PAUSE
+    this.targetMediaState = this.platform.Characteristic.CurrentMediaState.PAUSE;
 
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
-        .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Roon')
-        .setCharacteristic(this.platform.Characteristic.Model, 'Output')
-        .setCharacteristic(this.platform.Characteristic.SerialNumber, this.accessory.context.output.output_id);
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Roon')
+      .setCharacteristic(this.platform.Characteristic.Model, 'Output')
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, this.accessory.context.output.output_id);
 
     this.service =
         this.accessory.getService(this.platform.Service.SmartSpeaker)
@@ -42,10 +40,10 @@ export class RoonOutputsPlatformAccessory {
 
     // Event handlers for CurrentMediaState and TargetMediaState Characteristics.
     this.service.getCharacteristic(this.platform.Characteristic.CurrentMediaState)
-        .on(CharacteristicEventTypes.GET, this.getCurrentMediaState.bind(this));
+      .on(CharacteristicEventTypes.GET, this.getCurrentMediaState.bind(this));
     this.service.getCharacteristic(this.platform.Characteristic.TargetMediaState)
-        .on(CharacteristicEventTypes.SET, this.setTargetMediaState.bind(this))
-        .on(CharacteristicEventTypes.GET, this.getTargetMediaState.bind(this));
+      .on(CharacteristicEventTypes.SET, this.setTargetMediaState.bind(this))
+      .on(CharacteristicEventTypes.GET, this.getTargetMediaState.bind(this));
 
     // This will do its best to keep the actual outputs status up to date with Homekit.
     setInterval(() => {
@@ -63,7 +61,7 @@ export class RoonOutputsPlatformAccessory {
     if (!zone) {
       return this.platform.Characteristic.CurrentMediaState.STOP;
     }
-    let state: number = 0;
+    let state = 0;
     // These are the state strings returned by zone_by_zone_id.
     if (zone.state === 'playing') {
       state = this.platform.Characteristic.CurrentMediaState.PLAY;

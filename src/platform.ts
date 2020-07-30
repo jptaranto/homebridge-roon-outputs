@@ -32,7 +32,7 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
   ) {
     this.config = {
       postfix: 'Speaker',
-      ...config
+      ...config,
     };
 
     this.api.on('didFinishLaunching', () => {
@@ -46,14 +46,14 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
    * @see https://roonlabs.github.io/node-roon-api/RoonApi.html
    */
   discoverRoon() {
-    this.log.debug('Initializing Roon Node API...')
+    this.log.debug('Initializing Roon Node API...');
     const roon = new RoonApi({
       extension_id: PLUGIN_NAME,
       display_name: PLATFORM_NAME,
       display_version: process.env.npm_package_version,
-      publisher: "Homebridge",
-      email: "anonymous@gmail.com",
-      log_level: "none",
+      publisher: 'Homebridge',
+      email: 'anonymous@gmail.com',
+      log_level: 'none',
       core_paired: (core) => {
         this.log.debug(`Paired with ${core.display_name}.`);
         this.core = core;
@@ -63,7 +63,7 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
             return;
           }
           this.zones = response.zones;
-        })
+        });
         // We want the phyisical speakers to be based on outputs, not zones, so
         this.core.services.RoonApiTransport.get_outputs((error, response) => {
           if (error) {
