@@ -6,39 +6,38 @@
 
 # Homebridge Roon Outputs
 
-Add your Roon Outputs to Homekit. This platform plugin uses the [Roon Node API](https://github.com/RoonLabs/node-roon-api) and
+Add your Roon Outputs to Apple Homekit. This platform plugin uses the [Roon Node API](https://github.com/RoonLabs/node-roon-api) and
 the [SmartSpeaker](https://developers.homebridge.io/#/service/SmartSpeaker) service to automatically create accessories from
 all your Roon outputs that show up as real speakers in Homekit. 
 
-### Functionality
+## Functionality
 
 **You must have iOS 13.4 or later.**
 
 All your outputs (non-private) will show up in Homekit (after you add them one by one, see instructions below).
 
-Currently the `SmartSpeaker` service is extremely limited and all it only has the following functionality:
+Currently the `SmartSpeaker` service is extremely limited and it only has the following functionality:
 
 - Showing the current status of each output (Playing, paused, or stopped).
-- Pausing/Playing each output (unless that output is stopped).
+- Pausing/playing each output (unless that output is stopped).
 
-However the `SmartSpeaker` service does show some promise. Although it is all based on Airplay 2, there is a chance if
-somewhat slim that we'll also be able to control volume and other transport controls later on.
+However the `SmartSpeaker` service does show some promise. Although it is all based on Airplay 2, there is a chance (if
+somewhat slim) that we'll also be able to control volume and other transport controls later on.
 
-### Installation
+## Installation
 
-This plugin is published through NPM and should be installed globally:
+Install via NPM globally:
 
 ```
 sudo npm install -g --unsafe-perm homebridge-roon-outputs
 ```
 
-Alternative you can install this through [Homebridge Config UI X](https://www.npmjs.com/package/homebridge-config-ui-x)
-if you are using that. Just search for `homebridge-roon-outputs`.
+Alternatively you can install this through [Homebridge Config UI X](https://www.npmjs.com/package/homebridge-config-ui-x). Just search for `homebridge-roon-outputs`.
 
 Take a look at the [Homebridge Wiki](https://github.com/homebridge/homebridge/wiki) for help installing Homebridge if you
 haven't already.
 
-### Configuration
+## Configuration
 
 Add the `RoonOutputs` platform to your `config.json`:
 
@@ -47,7 +46,7 @@ Add the `RoonOutputs` platform to your `config.json`:
     "platforms": [
         {
             "platform": "RoonOutputs",
-            "prefix": ""
+            "postfix": "Roon output"
         }
     ]
 }
@@ -58,11 +57,11 @@ You can use the following options in your homebridge config:
 Variable | Optional/Required | Description
 -------- | ----------------- | -----------
 `platform` | **required** | Must be `RoonOutputs`.
-`postfix` | optional | Allows you to add a word after your output name that will show up in Homekit. Defaults to `Speaker`, set as `''` to leave blank.
+`postfix` | optional | Allows you to add a word after your output name that will show up in Homekit. Defaults to `Speaker`, set as `""` to leave blank.
 
-### How to use
+## How to use
 
-Once configured, restart Homebridge and keep an eye in the logs.
+Once configured, restart Homebridge and keep an eye on the logs.
 
 You will need to enable the extension in Roon before you can use it. Head over to the "Extensions"
 page in Roon settings, and hit "Enable" next to the "Homebridge RoonOutputs" extension.
