@@ -1,15 +1,17 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "Volumio Speakers",
   "pluginType": "platform",
   "singular": true,
   "schema": {
     "type": "object",
     "properties": {
-      "name": {
-        "title": "Name",
+      "serverURL": {
+        "title": "Server URL",
+        "description": "Only one Volumio server URL is required. Other instances/zones will be auto discovered from this one. must include http(s) and no trailing slash.",
         "type": "string",
-        "required": true,
-        "default": "Example Dynamic Platform"
+        "default": "http://volumio.local",
+        "pattern": "^https?:\/\/(.*)[^/]$",
+        "required": true
       }
     }
   }
