@@ -40,7 +40,7 @@ export class PluginPlatform implements DynamicPlatformPlugin {
     this.log.debug('Discovering Volumio zones...');
 
     const url = `${this.config.serverURL}/api/v1/getzones`;
-    const { error, data } = getVolumioAPIData<VolumioAPIZoneStates>(url);
+    const { error, data } = getVolumioAPIData<VolumioAPIZoneStates>(url, this.log);
 
     if (error || !data) {
       this.log.error(`Error discovering Volumio zones: ${error}`);
