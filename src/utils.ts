@@ -1,26 +1,31 @@
 import * as http from 'http';
 
-export function getVolumioAPIData<T>(url: string): GetVolumioAPIData<T> {
+export function getVolumioAPIData<T>(url: string, logger?): GetVolumioAPIData<T> {
   const returnObj: GetVolumioAPIData<T> = {
     error: null,
   };
 
+  logger.info(`requesting ${url}`);
   http.get(url, res => {
     let rawJSON = '';
 
     res.on('data', chunk => {
+      logger.info(`recieved chunk: ${chunk}`);
       rawJSON += chunk;
     });
 
     res.on('end', () => {
       try {
+        logger.info(`parsing raw json: ${rawJSON}`);
         const parsedJSON = JSON.parse(rawJSON);
+        logger.info(`parsed json: ${parsedJSON}`);
         returnObj.data = parsedJSON;
       } catch (err) {
         returnObj.error = err;
       }
     });
   }).on('error', err => {
+    logger.info(`http error: ${err}`);
     returnObj.error = err;
   });
 

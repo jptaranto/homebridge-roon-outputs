@@ -37,17 +37,18 @@ export class PluginPlatform implements DynamicPlatformPlugin {
    * @see https://volumio.github.io/docs/API/REST_API.html
    */
   discoverZones() {
-    this.log.debug('Discovering Volumio Zones...');
+    this.log.debug('Discovering Volumio zones...');
 
     const url = `${this.config.serverURL}/api/v1/getzones`;
     const { error, data } = getVolumioAPIData<VolumioAPIZoneStates>(url);
 
     if (error || !data) {
-      this.log.error(`Error Discovering Volumio Zones: ${error}`);
+      this.log.error(`Error discovering Volumio zones: ${error}`);
+      this.log.error(`Data: ${data}`);
       return;
     }
 
-    this.log.debug(`${this.zones.length} Volumio Zone${this.zones.length === 1 ? '' : 's'} Discovered`);
+    this.log.debug(`${this.zones.length} Volumio zone${this.zones.length === 1 ? '' : 's'} discovered`);
 
     // strip states before saving to disk
     data.zones.forEach(zone => {
@@ -63,13 +64,13 @@ export class PluginPlatform implements DynamicPlatformPlugin {
    * Use the returned value of get_outputs to create the speaker accessories.
    */
   addAccessories() {
-    this.log.info(`Adding ${this.zones.length} Volumio Zones`);
+    this.log.info(`Adding Volumio zone${this.zones.length === 1 ? '' : 's'}`);
 
     for (const zone of this.zones) {
       // Use Roons output_id to create the UUID. This will ensure the accessory is always in sync.
       const uuid = this.api.hap.uuid.generate(zone.id);
 
-      this.log.info(`Adding/Updating Volumio Zone: ${zone.name}`);
+      this.log.info(`Adding/updating Volumio zone: ${zone.name}`);
 
       const accessory = new this.api.platformAccessory(zone.name, uuid);
       accessory.context.zone = zone;
