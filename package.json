@@ -1,7 +1,7 @@
 {
   "displayName": "Homebridge Volumio Speakers",
   "name": "homebridge-volumio-speakers",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Volumio zone integration with Homekit using Homebridge",
   "license": "Apache-2.0",
   "repository": {
