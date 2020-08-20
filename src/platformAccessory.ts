@@ -3,28 +3,33 @@ import {
   PlatformAccessory,
   CharacteristicValue,
   CharacteristicGetCallback,
+  CharacteristicSetCallback,
   CharacteristicEventTypes,
 } from 'homebridge';
 
 import { PluginPlatform } from './platform';
-import { getVolumioAPIData, VolumioAPICommandResponse, VolumioAPIState } from './utils';
+import { getVolumioAPIData, volumeClamp, VolumioAPICommandResponse, VolumioAPIState } from './utils';
 
 /**
- * Roon Outputs Platform Accessory.
+ * Volumio Speakers Platform Accessory.
  */
 export class PluginPlatformAccessory {
   private service: Service;
 
-  private currentMediaState: CharacteristicValue;
+  // private currentMediaState: CharacteristicValue;
 
   private targetMediaState: CharacteristicValue;
+  private volume: CharacteristicValue;
+  private muted: CharacteristicValue;
 
   constructor(
     private readonly platform: PluginPlatform,
     private readonly accessory: PlatformAccessory,
   ) {
-    this.currentMediaState = this.getZoneState();
+    // this.currentMediaState = this.getZoneState();
     this.targetMediaState = this.platform.Characteristic.CurrentMediaState.PAUSE;
+    this.volume = 0;
+    this.muted = false;
 
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Volumio')
@@ -41,63 +46,77 @@ export class PluginPlatformAccessory {
     // Event handlers for CurrentMediaState and TargetMediaState Characteristics.
     this.service.getCharacteristic(this.platform.Characteristic.CurrentMediaState)
       .on(CharacteristicEventTypes.GET, this.getCurrentMediaState.bind(this));
+
     this.service.getCharacteristic(this.platform.Characteristic.TargetMediaState)
       .on(CharacteristicEventTypes.SET, this.setTargetMediaState.bind(this))
       .on(CharacteristicEventTypes.GET, this.getTargetMediaState.bind(this));
 
-    // this.service.getCharacteristic(this.platform.Characteristic.Volume)
-    //   .on(CharacteristicEventTypes.SET, this.setVolume.bind(this))
-    //   .on(CharacteristicEventTypes.GET, this.getVolume.bind(this));
+    this.service.getCharacteristic(this.platform.Characteristic.Volume)
+      .on(CharacteristicEventTypes.SET, this.setVolume.bind(this))
+      .on(CharacteristicEventTypes.GET, this.getVolume.bind(this));
 
-    // This will do its best to keep the actual outputs status up to date with Homekit.
-    // setInterval(() => {
-    //   this.currentMediaState = this.getZoneState();
-    //   this.service.getCharacteristic(this.platform.Characteristic.CurrentMediaState).updateValue(this.currentMediaState);
-    // }, 3000);
+    this.service.getCharacteristic(this.platform.Characteristic.Mute)
+      .on(CharacteristicEventTypes.SET, this.setMute.bind(this))
+      .on(CharacteristicEventTypes.GET, this.getMute.bind(this));
   }
 
   /**
    * Utility method to pull the actual status from the zone.
    */
-  getZoneState() {
+  async getZoneState(): Promise<VolumioAPIState> {
     const zone = this.accessory.context.zone;
-    
+    const defaultData: VolumioAPIState = {
+      status: 'stop',
+      volume: 0,
+      mute: false,
+    };
     // If the output/zone doesn't exist for any reason (such as from being grouped, return stopped).
     if (!zone) {
-      return this.platform.Characteristic.CurrentMediaState.STOP;
+      return defaultData;
     }
 
     const url = `${zone.host}/api/v1/getState`;
-    const { error, data } = getVolumioAPIData<VolumioAPIState>(url);
+    const { error, data } = await getVolumioAPIData<VolumioAPIState>(url);
 
     if (error || !data) {
       this.platform.log.error(`Error getting state for Zone: ${zone.name}`);
       this.platform.log.error(`${error}`);
     }
 
-    return this.convertVolumioStateToCharacteristicValue(data);
+    return data || defaultData;
   }
 
   /**
    * Get the currentMediaState.
    */
-  getCurrentMediaState(callback: CharacteristicGetCallback) {
-    this.currentMediaState = this.getZoneState();
-    this.platform.log.debug('Triggered GET CurrentMediaState:', this.currentMediaState);
-    callback(undefined, this.currentMediaState);
+  async getCurrentMediaState(callback: CharacteristicGetCallback) {
+    const zoneState = await this.getZoneState();
+    const currentMediaState = this.convertVolumioStatusToCharacteristicValue(zoneState.status);
+    this.platform.log.debug('Triggered GET CurrentMediaState:', currentMediaState);
+    callback(undefined, currentMediaState);
   }
 
   /**
-   * Set the targetMediaState.
-   * Toggle play/pause
+   * Get the targetMediaState.
+   * This doesn't seem to ever be called. Ever...
    */
-  setTargetMediaState(value, callback: CharacteristicGetCallback) {
+  getTargetMediaState(callback: CharacteristicGetCallback) {
+    const state = this.targetMediaState;
+    this.platform.log.debug('Triggered GET CurrentMediaState:', state);
+    callback(undefined, state);
+  }
+
+  /**
+ * Set the targetMediaState.
+ * Toggle play/pause
+ */
+  async setTargetMediaState(value: CharacteristicValue, callback: CharacteristicSetCallback) {
     this.targetMediaState = value;
     this.platform.log.debug('Triggered SET TargetMediaState:', value);
 
     const zone = this.accessory.context.zone;
     const url = `${zone.host}/api/v1/commands/?cmd=toggle`;
-    const { error, data } = getVolumioAPIData<VolumioAPICommandResponse>(url);
+    const { error, data } = await getVolumioAPIData<VolumioAPICommandResponse>(url);
 
     if (error || !data) {
       this.platform.log.error(`Error setting state for Zone: ${zone.name}`);
@@ -111,69 +130,77 @@ export class PluginPlatformAccessory {
   }
 
   /**
-   * Get the targetMediaState.
-   * This doesn't seem to ever be called. Ever...
+   * Get the Volume..
    */
-  getTargetMediaState(callback: CharacteristicGetCallback) {
-    const state = this.targetMediaState;
-    this.platform.log.debug('Triggered GET CurrentMediaState:', state);
-    callback(undefined, state);
+  async getVolume(callback: CharacteristicGetCallback) {
+    const zoneState = await this.getZoneState();
+    this.platform.log.debug('Triggered GET Volume:', zoneState.volume);
+    callback(undefined, zoneState.volume);
   }
 
-  // /**
-  //  * Get the Volume.
-  //  * This doesn't seem to ever be called. Ever...
-  //  */
-  // setVolume(value, callback: CharacteristicGetCallback) {
-  //   this.targetMediaState = value;
-  //   this.platform.log.debug('Triggered SET TargetMediaState:', value);
+  /**
+   * Set the Volume.
+   */
+  async setVolume(value: CharacteristicValue, callback: CharacteristicSetCallback) {
+    this.volume = volumeClamp(<number>value);
+    this.platform.log.debug('Triggered SET Volume:', this.volume);
 
-  //   const zone = this.accessory.context.zone;
-  //   const url = `${zone.host}/api/v1/commands/?cmd=toggle`;
-  //   const { error, data } = getVolumioAPIData<VolumioAPICommandResponse>(url);
+    const zone = this.accessory.context.zone;
+    const url = `${zone.host}/api/v1/commands/?cmd=volume&volume=${this.volume}`;
+    const { error, data } = await getVolumioAPIData<VolumioAPICommandResponse>(url);
 
-  //   if (error || !data) {
-  //     this.platform.log.error(`Error setting state for Zone: ${zone.name}`);
-  //     this.platform.log.error(`${error}`);
-  //     callback(error);
-  //     return;
-  //   }
-
-  //   const state = this.convertVolumioCommandResponseToCharacteristicValue(data);
-  //   callback(undefined, state);
-  // }
-
-  // /**
-  //  * Get the Volume..
-  //  */
-  // getVolumeccccccibjdivbrvbbdiehdrchrbclegjkrjffntlnrib(callback: CharacteristicGetCallback) {
-  //   const state = this.targetMediaState;
-  //   this.platform.log.debug('Triggered GET CurrentMediaState:', state);
-  //   callback(undefined, state);
-  // }
-
-  convertVolumioStateToCharacteristicValue(data?: VolumioAPIState): CharacteristicValue {
-    let state = this.platform.Characteristic.CurrentMediaState.STOP;
-
-    if (!data) {
-      return state;
+    if (error || !data) {
+      this.platform.log.error(`Error setting volume for Zone: ${zone.name}`);
+      this.platform.log.error(`${error}`);
+      callback(error);
+      return;
     }
 
+    callback(undefined, this.volume);
+  }
+
+  /**
+   * Get the Volume..
+   */
+  async getMute(callback: CharacteristicGetCallback) {
+    const zoneState = await this.getZoneState();
+    this.platform.log.debug('Triggered GET Mute:', zoneState.mute);
+    callback(undefined, zoneState.mute);
+  }
+
+  /**
+   * Set the Volume.
+   */
+  async setMute(value: CharacteristicValue, callback: CharacteristicSetCallback) {
+    const convertedMute = value ? 'mute' : 'unmute';
+    this.muted = value;
+    this.platform.log.debug('Triggered SET Mute:', this.muted);
+
+    const zone = this.accessory.context.zone;
+    const url = `${zone.host}/api/v1/commands/?cmd=volume&volume=${convertedMute}`;
+    const { error, data } = await getVolumioAPIData<VolumioAPICommandResponse>(url);
+
+    if (error || !data) {
+      this.platform.log.error(`Error setting mute for Zone: ${zone.name}`);
+      this.platform.log.error(`${error}`);
+      callback(error);
+      return;
+    }
+
+    callback(undefined, this.muted);
+  }
+
+  convertVolumioStatusToCharacteristicValue(status: string): CharacteristicValue {
     // These are the state strings returned by Volumio
-    switch (data.status) {
+    switch (status) {
       case 'play':
-        state = this.platform.Characteristic.CurrentMediaState.PLAY;
-        break;
+        return this.platform.Characteristic.CurrentMediaState.PLAY;
       case 'pause':
-        state = this.platform.Characteristic.CurrentMediaState.PAUSE;
-        break;
+        return this.platform.Characteristic.CurrentMediaState.PAUSE;
       case 'stop':
       default:
-        state = this.platform.Characteristic.CurrentMediaState.STOP;
-        break;
+        return this.platform.Characteristic.CurrentMediaState.STOP;
     }
-
-    return state;
   }
   
   convertVolumioCommandResponseToCharacteristicValue(data?: VolumioAPICommandResponse): CharacteristicValue {

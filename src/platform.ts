@@ -6,7 +6,7 @@ import { getVolumioAPIData, VolumioAPIZoneStates } from './utils';
 
 
 /**
- * Add Roon outputs as accessories.
+ * Add Volumio Zones as accessories.
  */
 export class PluginPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service = this.api.hap.Service;
@@ -27,7 +27,7 @@ export class PluginPlatform implements DynamicPlatformPlugin {
     };
 
     this.api.on('didFinishLaunching', () => {
-      this.log.debug('Finished initializing platform:', this.config.name);
+      this.log.info('Finished initializing platform:', this.config.name);
       this.discoverZones();
     });
   }
@@ -36,28 +36,32 @@ export class PluginPlatform implements DynamicPlatformPlugin {
    * Use the getZones rest API to retrieve all zones
    * @see https://volumio.github.io/docs/API/REST_API.html
    */
-  discoverZones() {
-    this.log.debug('Discovering Volumio zones...');
+  async discoverZones() {
+    try {
+      this.log.info('Discovering Volumio zones...');
 
-    const url = `${this.config.serverURL}/api/v1/getzones`;
-    const { error, data } = getVolumioAPIData<VolumioAPIZoneStates>(url, this.log);
+      const url = `${this.config.serverURL}/api/v1/getzones`;
+      const { error, data } = await getVolumioAPIData<VolumioAPIZoneStates>(url);
 
-    if (error || !data) {
-      this.log.error(`Error discovering Volumio zones: ${error}`);
-      this.log.error(`Data: ${data}`);
-      return;
+      if (error || !data) {
+        this.log.error(`Error discovering Volumio zones: ${error}`);
+        this.log.error(`Data: ${data}`);
+        return;
+      }
+
+      this.log.info(`${data.zones.length} Volumio zone${data.zones.length === 1 ? '' : 's'} discovered`);
+
+      // strip states before saving to disk
+      data.zones.forEach(zone => {
+        delete zone.state;
+      });
+
+      this.zones = data.zones;
+
+      this.addAccessories();
+    } catch (err) {
+      this.log.error(`Fatal discovering Volumio zones: ${err}`);
     }
-
-    this.log.debug(`${this.zones.length} Volumio zone${this.zones.length === 1 ? '' : 's'} discovered`);
-
-    // strip states before saving to disk
-    data.zones.forEach(zone => {
-      delete zone.state;
-    });
-
-    this.zones = data.zones;
-
-    this.addAccessories();
   }
 
   /**
