@@ -46,7 +46,7 @@ Add the `RoonOutputs` platform to your `config.json`:
     "platforms": [
         {
             "platform": "RoonOutputs",
-            "postfix": "Roon output"
+            "suffix": "Roon output"
         }
     ]
 }
@@ -57,7 +57,7 @@ You can use the following options in your homebridge config:
 Variable | Optional/Required | Description
 -------- | ----------------- | -----------
 `platform` | **required** | Must be `RoonOutputs`.
-`postfix` | optional | Allows you to add a word after your output name that will show up in Homekit. Defaults to `Speaker`, set as `""` to leave blank.
+`suffix` | optional | Allows you to add a word after your output name that will show up in Homekit. Defaults to `Speaker`, set as `""` to leave blank.
 
 ## How to use
 

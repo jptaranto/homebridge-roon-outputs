@@ -1,5 +1,4 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
-
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { RoonOutputsPlatformAccessory } from './platformAccessory';
 
@@ -31,12 +30,12 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
     public readonly api: API,
   ) {
     this.config = {
-      postfix: 'Speaker',
+      suffix: 'Speaker',
       ...config,
     };
 
     this.api.on('didFinishLaunching', () => {
-      this.log.debug('Finished initializing platform:', this.config.name);
+      this.log.debug('Finished initializing platform:', this.config.platform);
       this.discoverRoon();
     });
   }
@@ -98,8 +97,8 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
       // Use Roons output_id to create the UUID. This will ensure the accessory is always in sync.
       const uuid = this.api.hap.uuid.generate(output.output_id);
 
-      // Create the accessory name based on the display_name and the optional config.postfix value.
-      const name = `${output.display_name}${this.config.postfix ? ' ' + this.config.postfix : ''}`;
+      // Create the accessory name based on the display_name and the optional config.suffix value.
+      const name = `${output.display_name}${this.config.suffix ? ' ' + this.config.suffix : ''}`;
 
       this.log.info(`Adding/Updating Roon Output External Accessory: ${name}`);
 
