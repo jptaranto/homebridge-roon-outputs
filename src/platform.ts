@@ -6,6 +6,8 @@ import RoonApi from 'node-roon-api';
 import RoonApiStatus from 'node-roon-api-status';
 import RoonApiTransport from 'node-roon-api-transport';
 
+import fs from 'fs';
+
 /**
  * Add Roon outputs as accessories.
  */
@@ -46,6 +48,20 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
    */
   discoverRoon() {
     this.log.debug('Initializing Roon Node API...');
+
+    // Roon Node API saves its auth credentials to a file called config.json
+    // directly to process.cwd(). Lets change that directory to the homebridge storage path
+    // and add a subfolder for Roon.
+    // @todo submit PR to RoonLabs/node-roon-api to make this dir configurable by the extension.
+    // @todo see https://github.com/RoonLabs/node-roon-api/blob/b09c875738360a9413518a8a51ac70294745a926/lib.js#L235
+    const cwd = process.cwd();
+    const configDir = this.api.user.storagePath() + '/roon';
+    if (!fs.existsSync(configDir)){
+      fs.mkdirSync(configDir);
+    }
+    process.chdir(configDir);
+    this.log.debug(`Changing cwd to: ${configDir}`);
+
     const roon = new RoonApi({
       extension_id: PLUGIN_NAME,
       display_name: PLATFORM_NAME,
@@ -71,6 +87,10 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
           this.outputs = response.outputs;
           this.addAccessories();
         });
+
+        // Change cwd back to it's previous value.
+        process.chdir(cwd);
+        this.log.debug(`Changing cwd back to: ${cwd}`);
       },
       core_unpaired: (core) => {
         this.log.debug(`Unpaired with ${core.display_name}.`);
