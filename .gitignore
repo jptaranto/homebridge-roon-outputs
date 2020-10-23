@@ -120,3 +120,4 @@ dist
 
 # PHP Storm
 .idea
+config.json
