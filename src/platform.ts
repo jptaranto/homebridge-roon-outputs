@@ -1,4 +1,12 @@
-import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
+import {
+  API,
+  DynamicPlatformPlugin,
+  Logger,
+  PlatformAccessory,
+  PlatformConfig,
+  Service,
+  Characteristic,
+} from 'homebridge';
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { RoonOutputsPlatformAccessory } from './platformAccessory';
 
@@ -56,7 +64,7 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
     // @todo see https://github.com/RoonLabs/node-roon-api/blob/b09c875738360a9413518a8a51ac70294745a926/lib.js#L235
     const cwd = process.cwd();
     const configDir = this.api.user.storagePath() + '/roon';
-    if (!fs.existsSync(configDir)){
+    if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir);
     }
     process.chdir(configDir);
@@ -100,8 +108,8 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
     this.svcStatus = new RoonApiStatus(roon);
 
     roon.init_services({
-      required_services: [ RoonApiTransport ],
-      provided_services: [ this.svcStatus ],
+      required_services: [RoonApiTransport],
+      provided_services: [this.svcStatus],
     });
     roon.start_discovery();
   }
@@ -149,5 +157,4 @@ export class RoonOutputsPlatform implements DynamicPlatformPlugin {
     this.log.info('Loading accessory from cache:', accessory.displayName);
     this.accessories.push(accessory);
   }
-
 }

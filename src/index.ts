@@ -8,4 +8,4 @@ import { RoonOutputsPlatform } from './platform';
  */
 export = (api: API) => {
   api.registerPlatform(PLATFORM_NAME, RoonOutputsPlatform);
-}
+};
