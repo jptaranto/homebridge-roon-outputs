@@ -91,6 +91,24 @@ export class RoonOutputsPlatformAccessory {
     }
   }
 
+  /*
+   * Utility to convert HomeKit State to Roon control API method
+   * @see https://roonlabs.github.io/node-roon-api/other_node-roon-api-transport_lib.js.html
+   */
+  getRoonZoneMethod(state) {
+    switch (state) {
+      case this.platform.Characteristic.TargetMediaState.PLAY: {
+        return 'play';
+      }
+      case this.platform.Characteristic.TargetMediaState.PAUSE: {
+        return 'pause';
+      }
+      case this.platform.Characteristic.TargetMediaState.STOP: {
+        return 'stop';
+      }
+    }
+  }
+
   /**
    * Get the currentMediaState.
    */
@@ -109,16 +127,12 @@ export class RoonOutputsPlatformAccessory {
    */
   setTargetMediaState(value, callback: CharacteristicGetCallback) {
     this.targetMediaState = value;
+    this.platform.log.debug('Triggered SET TargetMediaState:', value);
     if (this.targetMediaState !== this.currentMediaState) {
       // Only trigger state change if current and target states differ
       // This makes automations and scenes work properly
-      this.platform.log.debug('Triggered SET TargetMediaState:', value);
-
-      const method =
-        this.targetMediaState === this.platform.Characteristic.CurrentMediaState.PLAY
-          ? 'play'
-          : 'pause';
-
+      const method = this.getRoonZoneMethod(this.targetMediaState);
+      this.platform.log.debug('Invoking RoonApiTransport.control with:', method);
       // @see https://roonlabs.github.io/node-roon-api/other_node-roon-api-transport_lib.js.html
       this.platform.core.services.RoonApiTransport.control(
         this.accessory.context.output.zone_id,
