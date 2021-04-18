@@ -25,30 +25,41 @@ export class RoonOutputsPlatformAccessory {
     this.currentMediaState = this.getRoonZoneState();
     this.targetMediaState = this.platform.Characteristic.CurrentMediaState.PAUSE;
 
-    this.accessory.getService(this.platform.Service.AccessoryInformation)!
+    this.accessory
+      .getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Roon')
       .setCharacteristic(this.platform.Characteristic.Model, 'Output')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, this.accessory.context.output.output_id);
+      .setCharacteristic(
+        this.platform.Characteristic.SerialNumber,
+        this.accessory.context.output.output_id,
+      );
 
     this.service =
-        this.accessory.getService(this.platform.Service.SmartSpeaker)
-        || this.accessory.addService(this.platform.Service.SmartSpeaker);
+      this.accessory.getService(this.platform.Service.SmartSpeaker) ||
+      this.accessory.addService(this.platform.Service.SmartSpeaker);
 
     // Allows name to show when adding speaker.
     // This has the added benefit of keeping the speaker name in sync with Roon and your config.
-    this.service.setCharacteristic(this.platform.Characteristic.ConfiguredName, this.accessory.displayName);
+    this.service.setCharacteristic(
+      this.platform.Characteristic.ConfiguredName,
+      this.accessory.displayName,
+    );
 
     // Event handlers for CurrentMediaState and TargetMediaState Characteristics.
-    this.service.getCharacteristic(this.platform.Characteristic.CurrentMediaState)
+    this.service
+      .getCharacteristic(this.platform.Characteristic.CurrentMediaState)
       .on(CharacteristicEventTypes.GET, this.getCurrentMediaState.bind(this));
-    this.service.getCharacteristic(this.platform.Characteristic.TargetMediaState)
+    this.service
+      .getCharacteristic(this.platform.Characteristic.TargetMediaState)
       .on(CharacteristicEventTypes.SET, this.setTargetMediaState.bind(this))
       .on(CharacteristicEventTypes.GET, this.getTargetMediaState.bind(this));
 
     // This will do its best to keep the actual outputs status up to date with Homekit.
     setInterval(() => {
       this.currentMediaState = this.getRoonZoneState();
-      this.service.getCharacteristic(this.platform.Characteristic.CurrentMediaState).updateValue(this.currentMediaState);
+      this.service
+        .getCharacteristic(this.platform.Characteristic.CurrentMediaState)
+        .updateValue(this.currentMediaState);
     }, 3000);
   }
 
@@ -56,7 +67,9 @@ export class RoonOutputsPlatformAccessory {
    * Utility method to pull the actual status from the zone.
    */
   getRoonZoneState() {
-    const zone = this.platform.core.services.RoonApiTransport.zone_by_zone_id(this.accessory.context.output.zone_id);
+    const zone = this.platform.core.services.RoonApiTransport.zone_by_zone_id(
+      this.accessory.context.output.zone_id,
+    );
     // If the output/zone doesn't exist for any reason (such as from being grouped, return stopped).
     if (!zone) {
       return this.platform.Characteristic.CurrentMediaState.STOP;
@@ -95,9 +108,13 @@ export class RoonOutputsPlatformAccessory {
     this.platform.log.debug('Triggered SET TargetMediaState:', value);
     // Use playpause here as it's more versatile.
     // @see https://roonlabs.github.io/node-roon-api/other_node-roon-api-transport_lib.js.html
-    this.platform.core.services.RoonApiTransport.control(this.accessory.context.output.zone_id, 'playpause', () => {
-      callback(null);
-    });
+    this.platform.core.services.RoonApiTransport.control(
+      this.accessory.context.output.zone_id,
+      'playpause',
+      () => {
+        callback(null);
+      },
+    );
   }
 
   /**
@@ -109,5 +126,4 @@ export class RoonOutputsPlatformAccessory {
     this.platform.log.debug('Triggered GET CurrentMediaState:', state);
     callback(undefined, state);
   }
-
 }
