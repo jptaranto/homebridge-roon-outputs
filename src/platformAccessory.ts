@@ -130,7 +130,7 @@ export class RoonOutputsPlatformAccessory {
    * Combined with the setInterval in the constructor the
    * output status should generally be good.
    */
-  setTargetMediaState(value, callback: CharacteristicGetCallback) {
+  setTargetMediaState(value, callback) {
     this.targetMediaState = value;
     this.platform.log.debug('Triggered SET TargetMediaState:', value);
     if (this.targetMediaState !== this.currentMediaState) {
@@ -142,11 +142,19 @@ export class RoonOutputsPlatformAccessory {
       this.platform.core.services.RoonApiTransport.control(
         this.accessory.context.output.zone_id,
         method,
-        () => {
-          callback(null);
+        (error) => {
+          if (error) {
+            this.platform.log.debug('RoonApiTransport.control Error:', error);
+            callback(error);
+          } else {
+            this.platform.log.debug('RoonApiTransport.control Complete');
+          }
         },
       );
     }
+    // Update the HomeKit state right away to prevent delays and warnings
+    // @see https://github.com/homebridge/homebridge/wiki/Characteristic-Warnings
+    callback(null, value);
   }
 
   /**
@@ -156,6 +164,6 @@ export class RoonOutputsPlatformAccessory {
   getTargetMediaState(callback: CharacteristicGetCallback) {
     const state = this.targetMediaState;
     this.platform.log.debug('Triggered GET CurrentMediaState:', state);
-    callback(undefined, state);
+    callback(null, state);
   }
 }
