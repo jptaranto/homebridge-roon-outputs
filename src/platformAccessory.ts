@@ -8,6 +8,8 @@ import {
 
 import { RoonOutputsPlatform } from './platform';
 
+type RoonApiControlMethod = 'play' | 'pause' | 'playpause' | 'stop' | 'previous' | 'next';
+
 /**
  * Roon Outputs Platform Accessory.
  */
@@ -95,7 +97,7 @@ export class RoonOutputsPlatformAccessory {
    * Utility to convert HomeKit State to Roon control API method
    * @see https://roonlabs.github.io/node-roon-api/other_node-roon-api-transport_lib.js.html
    */
-  getRoonZoneMethod(state) {
+  getRoonZoneMethod(state: CharacteristicValue): RoonApiControlMethod {
     switch (state) {
       case this.platform.Characteristic.TargetMediaState.PLAY: {
         return 'play';
@@ -104,6 +106,9 @@ export class RoonOutputsPlatformAccessory {
         return 'pause';
       }
       case this.platform.Characteristic.TargetMediaState.STOP: {
+        return 'stop';
+      }
+      default: {
         return 'stop';
       }
     }
