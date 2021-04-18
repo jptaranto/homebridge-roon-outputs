@@ -109,16 +109,25 @@ export class RoonOutputsPlatformAccessory {
    */
   setTargetMediaState(value, callback: CharacteristicGetCallback) {
     this.targetMediaState = value;
-    this.platform.log.debug('Triggered SET TargetMediaState:', value);
-    // Use playpause here as it's more versatile.
-    // @see https://roonlabs.github.io/node-roon-api/other_node-roon-api-transport_lib.js.html
-    this.platform.core.services.RoonApiTransport.control(
-      this.accessory.context.output.zone_id,
-      'playpause',
-      () => {
-        callback(null);
-      },
-    );
+    if (this.targetMediaState !== this.currentMediaState) {
+      // Only trigger state change if current and target states differ
+      // This makes automations and scenes work properly
+      this.platform.log.debug('Triggered SET TargetMediaState:', value);
+
+      const method =
+        this.targetMediaState === this.platform.Characteristic.CurrentMediaState.PLAY
+          ? 'play'
+          : 'pause';
+
+      // @see https://roonlabs.github.io/node-roon-api/other_node-roon-api-transport_lib.js.html
+      this.platform.core.services.RoonApiTransport.control(
+        this.accessory.context.output.zone_id,
+        method,
+        () => {
+          callback(null);
+        },
+      );
+    }
   }
 
   /**
