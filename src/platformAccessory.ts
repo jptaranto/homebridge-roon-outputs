@@ -74,18 +74,21 @@ export class RoonOutputsPlatformAccessory {
     if (!zone) {
       return this.platform.Characteristic.CurrentMediaState.STOP;
     }
-    let state = 0;
-    // These are the state strings returned by zone_by_zone_id.
-    if (zone.state === 'playing') {
-      state = this.platform.Characteristic.CurrentMediaState.PLAY;
+    switch (zone.state) {
+      case 'playing': {
+        return this.platform.Characteristic.CurrentMediaState.PLAY;
+      }
+      case 'paused':
+      case 'loading': {
+        return this.platform.Characteristic.CurrentMediaState.PAUSE;
+      }
+      case 'stopped': {
+        return this.platform.Characteristic.CurrentMediaState.STOP;
+      }
+      default: {
+        return this.platform.Characteristic.CurrentMediaState.STOP;
+      }
     }
-    if (zone.state === 'paused' || zone.state === 'loading') {
-      state = this.platform.Characteristic.CurrentMediaState.PAUSE;
-    }
-    if (zone.state === 'stopped') {
-      state = this.platform.Characteristic.CurrentMediaState.STOP;
-    }
-    return state;
   }
 
   /**
@@ -99,9 +102,10 @@ export class RoonOutputsPlatformAccessory {
 
   /**
    * Set the targetMediaState.
-   * We aren't allowing Homekit to set the value for us, instead we call the RoonApiTransport.control method
-   * with 'playpause' which does a great job of stopping and starting the output.
-   * Combined with the setInterval in the constructor the output status should generally be good.
+   * We aren't allowing Homekit to set the value for us,
+   * instead we call the RoonApiTransport.control method.
+   * Combined with the setInterval in the constructor the
+   * output status should generally be good.
    */
   setTargetMediaState(value, callback: CharacteristicGetCallback) {
     this.targetMediaState = value;
