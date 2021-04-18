@@ -124,11 +124,7 @@ export class RoonOutputsPlatformAccessory {
   }
 
   /**
-   * Set the targetMediaState.
-   * We aren't allowing Homekit to set the value for us,
-   * instead we call the RoonApiTransport.control method.
-   * Combined with the setInterval in the constructor the
-   * output status should generally be good.
+   * Set the targetMediaState and control the Roon Zone playback status
    */
   setTargetMediaState(value, callback) {
     this.targetMediaState = value;
