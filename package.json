@@ -29,9 +29,9 @@
     "homebridge-plugin"
   ],
   "dependencies": {
-    "node-roon-api": "github:roonlabs/node-roon-api",
-    "node-roon-api-status": "github:roonlabs/node-roon-api-status",
-    "node-roon-api-transport": "github:roonlabs/node-roon-api-transport"
+    "node-roon-api": "github:RoonLabs/node-roon-api",
+    "node-roon-api-status": "github:RoonLabs/node-roon-api-status",
+    "node-roon-api-transport": "github:RoonLabs/node-roon-api-transport"
   },
   "devDependencies": {
     "@types/node": "^14.0.14",
